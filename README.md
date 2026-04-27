@@ -146,6 +146,7 @@ docker-compose.yml
 ## With more time
 
 **I'd add:**
+
 - A proper job queue (BullMQ or pg-boss) to replace the fire-and-forget `void runPipeline()` — concurrent builds on the same machine currently share CPU/memory with no backpressure
 - Container health checks before marking `running`: poll the upstream until it responds before registering the Caddy route, so the "Open" button never 502s
 - Log persistence across API restarts — currently a mid-build restart loses the in-flight log stream; easiest fix is tailing the file on reconnect, which the SSE handler already does for completed builds
@@ -153,6 +154,7 @@ docker-compose.yml
 - A `EXPOSE` / `PORT` inference pass before `docker run` — right now it defaults to 8080 and overrides with `PORT` env; some images ignore that
 
 **I'd rip out:**
+
 - The in-process `EventEmitter` log pubsub — it breaks the moment you run more than one API replica; replace with Redis pub/sub or a Postgres `LISTEN/NOTIFY` channel
 - The mixed Caddyfile + admin API routing strategy — the Caddyfile compiles to a catch-all route that forces all dynamic routes to be prepended via `PATCH` to avoid being shadowed; cleaner to own the full Caddy config from the API on startup and drop the static Caddyfile entirely
 - `simple-git` for cloning — it's fine, but shelling out to `git` directly via `execa` with `--filter=blob:none` for a true lazy clone would be faster for large repos
@@ -165,13 +167,17 @@ docker-compose.yml
 
 **Experience:**
 
-Sign-up was smooth, but there's an OAuth gap I noticed, when I authenticated with GitHub during sign-up, then got prompted to connect GitHub again when creating my first project. Not a blocker, but it's confusing because the two steps look identical and it's unclear why the first one didn't already grant the required scope.
+Sign-up was smooth, but there's an OAuth gap I noticed: I authenticated with GitHub during sign-up, then got prompted to connect GitHub again when creating my first project. Not a blocker, but confusing because the two steps look identical and it's unclear why the first didn't already grant the required scope.
 
-Framework auto-detection didn't trigger after I changed the root directory to `apps/web`. I had to manually select the framework. Changing the root directory should be able to re-run detection.
+**GitHub repo access discoverability:** I granted access to one repo during initial OAuth. When I later tried to deploy a second project I couldn't find anywhere to expand that access — I had to know to search by repo name. A "manage repository access" link on the new-project screen would make this obvious.
+
+Framework auto-detection didn't trigger after I changed the root directory to `apps/web`. I had to manually select the framework. Changing the root directory should re-run detection.
 
 The deploy UI itself is clean. Progress is visible, the live URL appeared quickly, and the overall flow is easy to follow. That part felt polished.
 
-**Critical bug:** I deployed a Vite app and it shows a black screen. When I sent a request to `/assets/index-Cu1sJYd8.js`, it returns `Content-Type: text/html` with HTTP 200 which seems to indicate Brimble's SPA fallback is intercepting static asset requests. I think the SPA fallback should only apply to extensionless navigation paths, and not to `.js`, `.css`, or other static asset paths. Additionally, Cloudflare Rocket Loader is mutating the `type="module"` attribute on the script tag to a random hash string (`type="bff498db0110ddf5d337554c-module"`), which breaks ES module loading entirely. Together these two issues make it impossible to ship a Vite/React app on Brimble right now.
+**Critical bug — monorepo asset path resolution:** I deployed the frontend of the project with the root directory set to `apps/web` and got a black screen. Asset requests (`/assets/index-Cu1sJYd8.js`) were returning `Content-Type: text/html` with HTTP 200 — Brimble's SPA fallback was intercepting them. I isolated the root cause by deploying a standalone (flat-repo) Vite app to a separate project ([vite-test.brimble.app](https://vite-test.brimble.app)). That one works: the same asset path returns `Content-Type: text/javascript`. The black screen is therefore specific to the root-directory-override path: Brimble resolves built asset URLs relative to the repository root rather than the configured root directory, so the files are never found and the SPA catch-all fires instead. The SPA fallback should only activate for extensionless navigation paths, not for `.js` / `.css` / etc., and asset serving should be scoped to the configured root's `dist/` output.
+
+Cloudflare Rocket Loader is also active on both deployments and mutates `type="module"` to a hash string (e.g. `type="67c9a96474ec609d623dc9d8-module"`), which breaks ES module loading. The flat-repo app recovers because the browser still loads the script via the `src` attribute before Rocket Loader intercepts. For the monorepo case the assets are already 404-ing as HTML, so Rocket Loader compounds the failure. Rocket Loader should be disabled by default for Brimble-managed deployments, or at minimum excluded from paths containing ES module entry points.
 
 **Missing for infra use cases:** Brimble has no support for `docker-compose.yml` as a deployment unit, no privileged container access, and no way to mount the Docker socket — which means anything that orchestrates containers (this project, Coolify-style tools, build pipelines) can't run there. That's a significant gap if Brimble wants to go beyond frontend hosting and compete in the full-stack/infra space. The `brimble deploy --prod` CLI referenced on the homepage would also benefit from a proper monorepo story (a `brimble.json` manifest mapping services to root dirs).
 
