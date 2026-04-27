@@ -41,7 +41,7 @@ Open **http://localhost**.
 ## Try it
 
 1. Click **New deploy**
-2. Paste a public Git URL — e.g. `https://github.com/railwayapp-templates/expressjs`
+2. Paste a public Git URL — e.g. `https://github.com/railwayapp-templates/expressjs` — or zip the included [`sample-app/`](./sample-app) folder and upload it to test the zip path.
 3. Watch `queued → cloning → building → starting → running` with logs streaming live in the browser
 4. Click **Open ↗** — your app is live at `http://<id>.localhost/` fronted by Caddy
 5. **Stop** kills the container and removes the Caddy route
