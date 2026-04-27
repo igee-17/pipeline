@@ -1,0 +1,70 @@
+name: brimble-pipeline
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "2019:2019"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - web_dist:/srv/web:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - apps
+    depends_on:
+      web:
+        condition: service_completed_successfully
+
+  buildkit:
+    image: moby/buildkit:latest
+    restart: unless-stopped
+    privileged: true
+    command:
+      - --addr
+      - tcp://0.0.0.0:1234
+      - --addr
+      - unix:///run/buildkit/buildkitd.sock
+    networks:
+      - apps
+
+  api:
+    build:
+      context: ./apps/api
+    restart: unless-stopped
+    environment:
+      - PORT=3001
+      - DATA_DIR=/data
+      - BUILDKIT_HOST=tcp://buildkit:1234
+      - CADDY_ADMIN_URL=http://caddy:2019
+      - APPS_NETWORK=brimble-pipeline_apps
+      - PUBLIC_HOST_SUFFIX=localhost
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - api_data:/data
+    networks:
+      - apps
+    depends_on:
+      - buildkit
+      - caddy
+
+  web:
+    build:
+      context: ./apps/web
+    command: ["sh", "-c", "rm -rf /out/* && cp -r /app/dist/. /out/"]
+    volumes:
+      - web_dist:/out
+    networks:
+      - apps
+
+volumes:
+  web_dist:
+  caddy_data:
+  caddy_config:
+  api_data:
+
+networks:
+  apps:
+    name: brimble-pipeline_apps

@@ -1,0 +1,32 @@
+{
+  "name": "@brimble-pipeline/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.7",
+    "@paralleldrive/cuid2": "^2.2.2",
+    "better-sqlite3": "^11.5.0",
+    "dockerode": "^4.0.2",
+    "execa": "^9.5.1",
+    "hono": "^4.6.13",
+    "pino": "^9.5.0",
+    "pino-pretty": "^11.3.0",
+    "simple-git": "^3.27.0",
+    "unzipper": "^0.12.3",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/dockerode": "^3.3.32",
+    "@types/node": "^22.10.1",
+    "@types/unzipper": "^0.10.10",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
